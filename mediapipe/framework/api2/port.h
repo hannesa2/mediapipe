@@ -77,10 +77,6 @@ struct NoneType {
   NoneType() = delete;
 };
 
-struct DynamicType {};
-
-struct AnyType : public DynamicType {};
-
 template <auto& P>
 class SameType : public DynamicType {
  public:
@@ -460,6 +456,9 @@ class OutputShardAccessBase {
   OutputShardAccessBase(const CalculatorContext& cc, OutputStreamShard* output)
       : context_(cc), output_(output) {}
 
+  Timestamp NextTimestampBound() const {
+    return (output_) ? output_->NextTimestampBound() : Timestamp::Unset();
+  }
   void SetNextTimestampBound(Timestamp timestamp) {
     if (output_) output_->SetNextTimestampBound(timestamp);
   }
