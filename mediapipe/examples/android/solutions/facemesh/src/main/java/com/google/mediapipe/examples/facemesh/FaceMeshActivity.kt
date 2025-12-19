@@ -70,7 +70,7 @@ class FaceMeshActivity : ComponentActivity() {
         CAMERA,
     }
 
-    private var inputSource: InputSource? = InputSource.UNKNOWN
+    private var inputSource: InputSource = InputSource.UNKNOWN
 
     // Image demo UI and image loader components.
     private var imageGetter: ActivityResultLauncher<Intent?>? = null
@@ -356,7 +356,7 @@ class FaceMeshActivity : ComponentActivity() {
     }
 
     /** Sets up core workflow for streaming mode.  */
-    private fun setupStreamingModePipeline(inputSource: InputSource?) {
+    private fun setupStreamingModePipeline(inputSource: InputSource) {
         this.inputSource = inputSource
         // Initializes a new MediaPipe Face Mesh solution instance in the streaming mode.
         facemesh =
