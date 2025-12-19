@@ -27,6 +27,7 @@ jobs:
         run: |
           export ANDROID_HOME=/Users/runner/Library/Android/sdk
           export ANDROID_NDK_HOME=$ANDROID_HOME/ndk-bundle
+          export HERMETIC_PYTHON_VERSION=3.12
           echo a | ./build_android_examples.sh
       - name: Show result
         run: git status
