@@ -15,7 +15,7 @@ jobs:
         uses: hannesa2/action-android/install-sdk@0.1.16.7
       - name: Install prerequisite brew
         run: |
-          brew install opencv@3
+          brew install opencv
           brew install python
           python --version
       - name: Install prerequisite Python
