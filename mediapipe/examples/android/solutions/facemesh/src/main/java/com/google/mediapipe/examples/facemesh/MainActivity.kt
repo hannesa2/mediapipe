@@ -72,6 +72,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Set up the toolbar as the action bar
+        setSupportActionBar(binding.toolbar)
+
         // TODO: Add a toggle to switch between the original face mesh and attention mesh.
         setupStaticImageDemoUiComponents()
         setupVideoDemoUiComponents()
