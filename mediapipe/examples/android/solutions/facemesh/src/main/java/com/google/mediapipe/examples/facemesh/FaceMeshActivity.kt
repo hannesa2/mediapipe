@@ -359,40 +359,42 @@ class FaceMeshActivity : ComponentActivity() {
     private fun setupStreamingModePipeline(inputSource: InputSource) {
         this.inputSource = inputSource
         // Initializes a new MediaPipe Face Mesh solution instance in the streaming mode.
-        facemesh =
-            FaceMesh(
-                this,
-                FaceMeshOptions.builder()
-                    .setStaticImageMode(false)
-                    .setRefineLandmarks(true)
-                    .setRunOnGpu(RUN_ON_GPU)
-                    .build()
-            )
-        facemesh!!.setErrorListener { message: String?, _: RuntimeException? -> Log.e(TAG, "MediaPipe Face Mesh error:$message") }
+        facemesh = FaceMesh(
+            this,
+            FaceMeshOptions.builder()
+                .setStaticImageMode(false)
+                .setRefineLandmarks(true)
+                .setRunOnGpu(RUN_ON_GPU)
+                .build()
+        )
+        facemesh?.setErrorListener { message: String?, _: RuntimeException? -> Log.e(TAG, "MediaPipe Face Mesh error:$message") }
 
         if (inputSource == InputSource.CAMERA) {
-            cameraInput = CameraInput(this)
-            cameraInput!!.setNewFrameListener { textureFrame: TextureFrame? -> facemesh!!.send(textureFrame) }
+            cameraInput = CameraInput(this).apply {
+                setNewFrameListener { textureFrame: TextureFrame? ->
+                    facemesh!!.send(textureFrame)
+                }
+            }
         } else if (inputSource == InputSource.VIDEO) {
-            videoInput = VideoInput(this)
-            videoInput!!.setNewFrameListener { textureFrame: TextureFrame? -> facemesh!!.send(textureFrame) }
+            videoInput = VideoInput(this).apply {
+                setNewFrameListener { textureFrame: TextureFrame? -> facemesh!!.send(textureFrame) }
+            }
         }
 
         // Initializes a new Gl surface view with a user-defined FaceMeshResultGlRenderer.
-        glSurfaceView =
-            SolutionGlSurfaceView<FaceMeshResult?>(this, facemesh!!.glContext, facemesh!!.glMajorVersion)
-        glSurfaceView!!.setSolutionResultRenderer(FaceMeshResultGlRenderer())
-        glSurfaceView!!.setRenderInputImage(true)
-        facemesh!!.setResultListener { faceMeshResult: FaceMeshResult? ->
+        glSurfaceView = SolutionGlSurfaceView<FaceMeshResult?>(this, facemesh!!.glContext, facemesh!!.glMajorVersion)
+        glSurfaceView?.setSolutionResultRenderer(FaceMeshResultGlRenderer())
+        glSurfaceView?.setRenderInputImage(true)
+        facemesh?.setResultListener { faceMeshResult: FaceMeshResult? ->
             logNoseLandmark(faceMeshResult,  /*showPixelValues=*/false)
-            glSurfaceView!!.setRenderData(faceMeshResult)
-            glSurfaceView!!.requestRender()
+            glSurfaceView?.setRenderData(faceMeshResult)
+            glSurfaceView?.requestRender()
         }
 
         // The runnable to start camera after the gl surface view is attached.
         // For video input source, videoInput.start() will be called when the video uri is available.
         if (inputSource == InputSource.CAMERA) {
-            glSurfaceView!!.post { this.startCamera() }
+            glSurfaceView?.post { this.startCamera() }
         }
 
         // Updates the preview layout.
@@ -400,15 +402,15 @@ class FaceMeshActivity : ComponentActivity() {
             imageView?.visibility = View.GONE
             previewContainer?.removeAllViewsInLayout()
             previewContainer?.addView(glSurfaceView)
-            glSurfaceView!!.visibility = View.VISIBLE
+            glSurfaceView?.visibility = View.VISIBLE
             previewContainer?.requestLayout()
         }
     }
 
     private fun startCamera() {
-        cameraInput!!.start(
+        cameraInput?.start(
             this,
-            facemesh!!.glContext,
+            facemesh?.glContext,
             CameraInput.CameraFacing.FRONT,
             glSurfaceView!!.width,
             glSurfaceView!!.height
@@ -416,20 +418,14 @@ class FaceMeshActivity : ComponentActivity() {
     }
 
     private fun stopCurrentPipeline() {
-        if (cameraInput != null) {
-            cameraInput!!.setNewFrameListener(null)
-            cameraInput!!.close()
-        }
-        if (videoInput != null) {
-            videoInput!!.setNewFrameListener(null)
-            videoInput!!.close()
-        }
+        cameraInput?.setNewFrameListener(null)
+        cameraInput?.close()
+        videoInput?.setNewFrameListener(null)
+        videoInput?.close()
         if (glSurfaceView != null) {
             glSurfaceView!!.visibility = View.GONE
         }
-        if (facemesh != null) {
-            facemesh!!.close()
-        }
+        facemesh?.close()
     }
 
     private fun logNoseLandmark(result: FaceMeshResult?, showPixelValues: Boolean) {
