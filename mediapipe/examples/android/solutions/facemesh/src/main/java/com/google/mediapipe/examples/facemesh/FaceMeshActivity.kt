@@ -22,12 +22,33 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
-import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.exifinterface.media.ExifInterface
-import com.google.mediapipe.examples.facemesh.databinding.ActivityMainBinding
 import com.google.mediapipe.framework.TextureFrame
 import com.google.mediapipe.solutioncore.CameraInput
 import com.google.mediapipe.solutioncore.SolutionGlSurfaceView
@@ -39,8 +60,7 @@ import java.io.IOException
 import java.io.InputStream
 
 // ContentResolver dependency
-/** Main activity of MediaPipe Face Mesh app.  */
-class MainActivity : AppCompatActivity() {
+class FaceMeshActivity : ComponentActivity() {
     private var facemesh: FaceMesh? = null
 
     private enum class InputSource {
@@ -65,20 +85,121 @@ class MainActivity : AppCompatActivity() {
 
     private var glSurfaceView: SolutionGlSurfaceView<FaceMeshResult?>? = null
 
-    private lateinit var binding: ActivityMainBinding
+    // Container for preview display
+    private var previewContainer: FrameLayout? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        // Set up the toolbar as the action bar
-        setSupportActionBar(binding.toolbar)
 
         // TODO: Add a toggle to switch between the original face mesh and attention mesh.
         setupStaticImageDemoUiComponents()
         setupVideoDemoUiComponents()
         setupLiveDemoUiComponents()
+
+        setContent {
+            MaterialTheme {
+                FaceMeshScreen()
+            }
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun FaceMeshScreen() {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("MediaPipe Face Mesh") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Button Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(onClick = { onLoadPictureClick() }) {
+                        Text("Load Picture")
+                    }
+                    Button(onClick = { onLoadVideoClick() }) {
+                        Text("Load Video")
+                    }
+                    Button(onClick = { onStartCameraClick() }) {
+                        Text("Start Camera")
+                    }
+                }
+
+                // Preview Display Layout
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            FrameLayout(context).apply {
+                                id = View.generateViewId()
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                                previewContainer = this
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    if (inputSource == InputSource.UNKNOWN) {
+                        Text(
+                            text = "Load an image, video, or use camera to see results.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun onLoadPictureClick() {
+        if (inputSource != InputSource.IMAGE) {
+            stopCurrentPipeline()
+            setupStaticImageModePipeline()
+        }
+        // Reads images from gallery.
+        val pickImageIntent = Intent(Intent.ACTION_PICK)
+        pickImageIntent.setDataAndType(MediaStore.Images.Media.INTERNAL_CONTENT_URI, "image/*")
+        imageGetter?.launch(pickImageIntent)
+    }
+
+    private fun onLoadVideoClick() {
+        stopCurrentPipeline()
+        setupStreamingModePipeline(InputSource.VIDEO)
+        // Reads video from gallery.
+        val pickVideoIntent = Intent(Intent.ACTION_PICK)
+        pickVideoIntent.setDataAndType(MediaStore.Video.Media.INTERNAL_CONTENT_URI, "video/*")
+        videoGetter?.launch(pickVideoIntent)
+    }
+
+    private fun onStartCameraClick() {
+        if (inputSource == InputSource.CAMERA) {
+            return
+        }
+        stopCurrentPipeline()
+        setupStreamingModePipeline(InputSource.CAMERA)
     }
 
     override fun onResume() {
@@ -171,16 +292,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        binding.buttonLoadPicture.setOnClickListener { _: View? ->
-            if (inputSource != InputSource.IMAGE) {
-                stopCurrentPipeline()
-                setupStaticImageModePipeline()
-            }
-            // Reads images from gallery.
-            val pickImageIntent = Intent(Intent.ACTION_PICK)
-            pickImageIntent.setDataAndType(MediaStore.Images.Media.INTERNAL_CONTENT_URI, "image/*")
-            imageGetter!!.launch(pickImageIntent)
-        }
         imageView = FaceMeshResultImageView(this)
     }
 
@@ -207,10 +318,12 @@ class MainActivity : AppCompatActivity() {
         facemesh!!.setErrorListener { message: String?, _: RuntimeException? -> Log.e(TAG, "MediaPipe Face Mesh error:$message") }
 
         // Updates the preview layout.
-        binding.previewDisplayLayout.removeAllViewsInLayout()
-        imageView!!.setImageDrawable(null)
-        binding.previewDisplayLayout.addView(imageView)
-        imageView!!.visibility = View.VISIBLE
+        runOnUiThread {
+            previewContainer?.removeAllViewsInLayout()
+            imageView!!.setImageDrawable(null)
+            previewContainer?.addView(imageView)
+            imageView!!.visibility = View.VISIBLE
+        }
     }
 
     /** Sets up the UI components for the video demo.  */
@@ -235,25 +348,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-        binding.buttonLoadVideo.setOnClickListener { _: View? ->
-            stopCurrentPipeline()
-            setupStreamingModePipeline(InputSource.VIDEO)
-            // Reads video from gallery.
-            val pickVideoIntent = Intent(Intent.ACTION_PICK)
-            pickVideoIntent.setDataAndType(MediaStore.Video.Media.INTERNAL_CONTENT_URI, "video/*")
-            videoGetter!!.launch(pickVideoIntent)
-        }
     }
 
     /** Sets up the UI components for the live demo with camera input.  */
     private fun setupLiveDemoUiComponents() {
-        binding.buttonStartCamera.setOnClickListener { _: View? ->
-            if (inputSource == InputSource.CAMERA) {
-                return@setOnClickListener
-            }
-            stopCurrentPipeline()
-            setupStreamingModePipeline(InputSource.CAMERA)
-        }
+        // Button click is now handled in Compose UI
     }
 
     /** Sets up core workflow for streaming mode.  */
@@ -297,11 +396,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Updates the preview layout.
-        imageView!!.visibility = View.GONE
-        binding.previewDisplayLayout.removeAllViewsInLayout()
-        binding.previewDisplayLayout.addView(glSurfaceView)
-        glSurfaceView!!.visibility = View.VISIBLE
-        binding.previewDisplayLayout.requestLayout()
+        runOnUiThread {
+            imageView?.visibility = View.GONE
+            previewContainer?.removeAllViewsInLayout()
+            previewContainer?.addView(glSurfaceView)
+            glSurfaceView!!.visibility = View.VISIBLE
+            previewContainer?.requestLayout()
+        }
     }
 
     private fun startCamera() {
