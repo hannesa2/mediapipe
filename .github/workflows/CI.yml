@@ -5,7 +5,7 @@ on: [pull_request]
 jobs:
   buildTest:
     name: Build
-    runs-on: macOS-latest
+    runs-on: macOS-15
     steps:
       - name: Checkout
         uses: actions/checkout@v3
